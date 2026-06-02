@@ -1,0 +1,32 @@
+node_modules/
+/.pnpm-store/
+
+# test and build byproducts
+coverage/
+.tmp/
+tmp/
+*.log
+
+# editor and OS noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# local environment and credentials
+.env
+.env.*
+!.env.example
+*.local
+gamebanana-state.txt
+*.storage-state.json
+.gitbanana-storage-state.json
+
+# playwright local auth state
+playwright/.auth/
+
+# dora code context index
+.dora/
+
+# residue local runtime state
+.residue/

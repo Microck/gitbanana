@@ -1,0 +1,40 @@
+name: GameBanana Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      submission_id:
+        description: GameBanana submission id to verify.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.25.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install chromium
+      - run: pnpm build
+      - name: Decode storage state
+        env:
+          GAMEBANANA_STORAGE_STATE_B64_GZ: ${{ secrets.GAMEBANANA_STORAGE_STATE_B64_GZ }}
+        run: |
+          set -euo pipefail
+          test -n "$GAMEBANANA_STORAGE_STATE_B64_GZ"
+          printf '%s' "$GAMEBANANA_STORAGE_STATE_B64_GZ" | base64 --decode | gzip -dc > "$RUNNER_TEMP/storage-state.json"
+      - name: Verify GameBanana API access
+        env:
+          SUBMISSION_ID: ${{ inputs.submission_id }}
+        run: |
+          node dist/cli.cjs verify-auth --submission-id "$SUBMISSION_ID" --storage-state "$RUNNER_TEMP/storage-state.json"

@@ -1,0 +1,55 @@
+name: gitbanana
+author: Microck
+description: Publish a release asset to a GameBanana submission from GitHub Actions.
+branding:
+  icon: upload-cloud
+  color: orange
+inputs:
+  submission-id:
+    description: GameBanana submission id.
+    required: true
+  asset:
+    description: Local release asset path to upload.
+    required: true
+  release-tag:
+    description: Release tag, for example v1.2.3.
+    required: true
+  release-notes:
+    description: Markdown release notes text to publish.
+    required: true
+  storage-state-b64-gz:
+    description: Gzip-compressed base64 Playwright storage state.
+    required: false
+  storage-state-b64:
+    description: Base64 Playwright storage state.
+    required: false
+  release-name:
+    description: GameBanana update name. Defaults to release-tag.
+    required: false
+  api-section:
+    description: GameBanana API section name.
+    default: Mod
+    required: false
+  page-section:
+    description: GameBanana page route section.
+    default: mods
+    required: false
+  browser:
+    description: Browser backend. Supported values are cloakbrowser and chromium.
+    default: cloakbrowser
+    required: false
+  debug-dir:
+    description: Directory for sanitized debug artifacts on failure.
+    required: false
+outputs:
+  file-id:
+    description: Published GameBanana file row id.
+  file-url:
+    description: Public GameBanana mmdl URL for the published file.
+  update-id:
+    description: GameBanana update row id.
+  already-published:
+    description: Whether the action found an already-published matching update.
+runs:
+  using: node24
+  main: dist/index.js

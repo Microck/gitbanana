@@ -1,0 +1,126 @@
+
+# domain
+- GameBanana submission means the target GameBanana mod or project page that receives uploaded release files and release updates.
+- GameBanana file row means the uploaded file record identified by GameBanana's file row id and used in public mmdl download links.
+
+## authentication
+- Playwright storage state contains cookies plus per-origin localStorage and can optionally include IndexedDB when captured with indexedDB enabled. @implemented
+
+# project
+- gitbanana is intended to provide reusable GitHub Actions automation for syncing GitHub Releases with GameBanana submissions. @implemented
+
+# research
+
+## akron
+- Akron's working release flow publishes a built zip to GameBanana before creating or updating the GitHub Release, so GameBanana failures do not leave a new partial GitHub release. @implemented
+- Akron's GameBanana publisher accepts Playwright storage state, gzip-compressed storage state, or cookie bundle authentication, but gitbanana intentionally narrows that broader Akron behavior to storage-state-only auth. @implemented
+- Akron's GameBanana publisher verifies that the uploaded file is the first active GameBanana file and that the release update links to that file before exposing the file id as workflow output. @implemented
+
+## github-actions
+- GitHub Actions metadata for this project must use action.yml because GitHub Marketplace release visibility is tied to the metadata filename used by released action versions. @implemented
+- GitHub Actions JavaScript actions can run on node24 and declare their executable entry point through runs.main. @implemented
+- GitHub Actions required inputs are metadata only; the action implementation must validate required inputs explicitly and fail fast with clear errors. @implemented
+- Comparable release-upload actions expose a narrow input and output contract, including release tag or file inputs and public artifact or release identifiers as outputs. @implemented
+
+## gamebanana
+- External search did not identify an established public GameBanana GitHub Action for release upload, so gitbanana should treat GameBanana publishing as its own core implementation rather than a thin wrapper around a known action. @draft
+
+## sweet-cookie
+- sweet-cookie is a local TypeScript cookie extraction tool with a Chrome extension that can export cookies as JSON or base64 CDP-ish cookie payloads. @draft
+- sweet-cookie's extension export format includes top-level metadata and a cookies array with name, value, domain, path, secure, httpOnly, sameSite, and expires fields. @draft
+
+# decisions
+
+## scope
+- gitbanana's core action must own GameBanana publishing and verification only; GitHub Release creation and GitHub asset upload belong in caller workflows or example templates. @implemented
+- Caller workflows are responsible for building release assets and preparing release notes before invoking the GameBanana publish action. @implemented
+- gitbanana example workflows are documentation templates and must not become a second implementation path for publishing behavior. @implemented
+
+## inputs
+- The GameBanana publish action must require submission-id, asset, release-tag, and release-notes inputs. @implemented
+- The GameBanana publish action may accept release-name, api-section, page-section, browser, and auth/session inputs as optional configuration. @implemented
+
+## authentication
+- The GameBanana publish action must not treat username/password login as a supported CI authentication path because GameBanana anti-bot protections reject it on GitHub-hosted runners. @implemented
+- The GameBanana publish action must support stored browser session authentication as the primary CI authentication path. @implemented
+- The GameBanana publish action must authenticate with stored Playwright storage state, not username/password or cookie-only payloads. @implemented
+- Playwright storage state and cookie-only payloads are not fully interchangeable because storage state can preserve origin storage that a cookie-only payload cannot. @implemented
+- The GameBanana publish action must accept only Playwright storage state authentication inputs, not cookie-only payloads. @implemented
+- Cookie-only authentication support is intentionally excluded from gitbanana because it is less complete than Playwright storage state and would expand the auth surface. @implemented
+- The storage-state capture command must verify that the authenticated browser can reach the target GameBanana edit form before printing or writing secret material for CI. @implemented
+
+## documentation
+- The GameBanana publish action must document an easy user workflow for obtaining a Playwright storage state secret for GameBanana. @implemented
+- gitbanana must ship a small local capture command that opens a headed browser on the target GameBanana edit page, lets the user complete auth manually, verifies edit access, and emits a gzipped base64 Playwright storage-state secret. @implemented
+- The storage-state capture tutorial must not require users to hand-write Playwright scripts. @implemented
+- gitbanana's complete example release workflow must show building an asset, preparing release notes, running gitbanana, creating or updating the GitHub Release, and optionally uploading debug artifacts on failure. @implemented
+- gitbanana documentation must include both concise README snippets and a complete example release workflow. @implemented
+
+## idempotency
+- gitbanana publish action reruns must fail with a clear diagnostic when an existing GameBanana update for the release is linked to the wrong file instead of silently repairing or deleting remote GameBanana history. @implemented
+- gitbanana publish action reruns must be idempotent for the same release-tag when the existing GameBanana update is already linked to a matching active file. @implemented
+
+## submission-types
+- gitbanana must support multiple GameBanana submission types through explicit api-section and page-section inputs. @implemented
+- gitbanana must not infer GameBanana api-section or page-section from a GameBanana URL because API section names and page route names are separate explicit inputs. @implemented
+- gitbanana must default api-section to Mod and page-section to mods. @implemented
+
+## release-notes
+- gitbanana must not include a full Markdown or HTML rendering pipeline for release notes in the core action. @implemented
+- gitbanana must parse release note bullets into GameBanana changelog entries with simple heading-based category mapping. @implemented
+- gitbanana must accept release notes as Markdown text and convert them to GameBanana update HTML with a deliberately small deterministic renderer. @implemented
+- gitbanana's Markdown-to-GameBanana renderer must support headings, bullet lists, and paragraphs, and must HTML-escape user-provided text by default. @implemented
+
+## outputs
+- gitbanana must expose file-id, file-url, update-id, and already-published outputs from the publish action. @implemented
+- gitbanana's file-url output must be the public GameBanana mmdl URL derived from the published file-id. @implemented
+- gitbanana must not expose raw GameBanana API payloads as action outputs because that would create an unstable public contract. @implemented
+
+## debugging
+- gitbanana must collect sanitized debug artifacts into a caller-configurable debug-dir when publishing fails. @implemented
+- gitbanana debug artifacts and logs must redact known secret values and must never log raw Playwright storage state. @implemented
+- gitbanana must not upload debug artifacts itself; caller workflows own any actions/upload-artifact step and retention policy. @implemented
+
+## language
+- gitbanana must use TypeScript for the GitHub Action and capture CLI because GitHub JavaScript actions run directly on Node, Playwright is first-class in Node, and npx-based local capture is ergonomic for users. @implemented
+- gitbanana must use a TypeScript JavaScript action compiled to dist/index.js, plus a TypeScript CLI entry for capture. @implemented
+- gitbanana must not use a polyglot architecture unless a later requirement creates a concrete need that TypeScript cannot cover cleanly. @implemented
+
+## tooling
+- gitbanana must use pnpm as its package manager. @implemented
+- gitbanana should avoid Bun-specific runtime behavior because GitHub Action execution and Playwright action packaging are standardized around Node. @implemented
+- gitbanana must target the Node GitHub Action runtime even though the repository package manager is pnpm. @implemented
+
+## testing
+- gitbanana browser-facing tests should use local Playwright fixture pages to exercise edit-form detection and upload-row promotion without writing to GameBanana. @implemented
+- gitbanana may provide an opt-in manual smoke workflow for real GameBanana publishing verification gated by required secrets. @implemented
+- gitbanana normal CI must not perform live GameBanana publishing writes by default. @implemented
+- gitbanana tests must cover pure behavior including input validation, storage-state decoding, release-note conversion, update and file matching, idempotency decisions, and output construction. @implemented
+
+## browser
+- gitbanana must default the publish action browser backend to cloakbrowser, matching the Akron reference release workflow. @implemented
+- gitbanana may support chromium as an explicit fallback browser backend for local debugging and lower-dependency environments. @implemented
+
+# risks
+
+## scope
+- Risk: adding project-specific build, changelog parsing, or version derivation to the core action would make it harder to reuse and maintain. @draft
+
+## authentication
+- Risk: using sweet-cookie as a runtime dependency inside GitHub Actions would not solve CI authentication because sweet-cookie reads local browser profiles and CI runners do not have the user's authenticated GameBanana browser profile. @draft
+
+## language
+- Language-selection risk: a composite shell action would make gitbanana's browser automation, storage-state handling, API polling, and release-note conversion harder to test and easier to turn into shell glue. @draft
+
+# documentation
+- gitbanana README uses the provided logo, follows the user's recent concise product README style, and documents purpose, quickstart, authentication capture, inputs, outputs, reruns, debugging, workflows, and local development. @implemented
+
+# tooling
+
+## gitignore
+- gitbanana ignores local dependencies, coverage, editor and OS noise, private environment files, captured GameBanana storage-state secrets, temporary Playwright auth state, local Dora indexes, and local Residue runtime state while keeping distributable dist bundles tracked for the GitHub Action. @implemented
+
+# publishing
+
+## github
+- gitbanana is published as the public GitHub repository Microck/gitbanana with repository description and topics that identify it as a GameBanana release publishing GitHub Action. @spec
