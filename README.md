@@ -1,6 +1,5 @@
 <div align="center">
   <img src="https://litter.catbox.moe/061nlo6ed4mu2tlx.png" alt="gitbanana logo" width="220">
-  <h1>gitbanana</h1>
 </div>
 
 <p align="center">
