@@ -123,4 +123,4 @@
 # publishing
 
 ## github
-- gitbanana is published as the public GitHub repository Microck/gitbanana with repository description and topics that identify it as a GameBanana release publishing GitHub Action. @spec
+- gitbanana is published as the public GitHub repository Microck/gitbanana with repository description and topics that identify it as a GameBanana release publishing GitHub Action. @implemented
