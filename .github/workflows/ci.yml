@@ -22,5 +22,7 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install chromium
+      - run: test -x /usr/bin/google-chrome-stable
       - run: pnpm check
+        env:
+          GITBANANA_CHROMIUM_EXECUTABLE: /usr/bin/google-chrome-stable

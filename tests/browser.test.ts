@@ -8,11 +8,14 @@ import { promoteUploadedFileInList } from "../src/browser.js";
 let browser: Awaited<ReturnType<typeof chromium.launch>>;
 
 beforeAll(async () => {
-  browser = await chromium.launch({ headless: true });
+  const executablePath = process.env.GITBANANA_CHROMIUM_EXECUTABLE;
+  browser = await chromium.launch(
+    executablePath ? { executablePath, headless: true } : { headless: true },
+  );
 });
 
 afterAll(async () => {
-  await browser.close();
+  await browser?.close();
 });
 
 describe("browser helpers", () => {
