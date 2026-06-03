@@ -11,6 +11,7 @@ export type PublishInput = GameBananaSection & {
   releaseNotes: string;
   storageStatePath: string;
   browser: "cloakbrowser" | "chromium";
+  proxy?: ProxySettings;
   debugDir?: string;
 };
 
@@ -45,4 +46,11 @@ export type GameBananaUpdate = {
 export type ChangeLogEntry = {
   text: string;
   cat: "Addition" | "Adjustment" | "BugFix" | "Improvement" | "Removal";
+};
+
+export type ProxySettings = {
+  server: string;
+  bypass?: string;
+  username?: string;
+  password?: string;
 };

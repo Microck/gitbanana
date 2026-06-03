@@ -2,11 +2,14 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { gzipSync } from "node:zlib";
 import { editUrl } from "./gamebanana.js";
+import { parseProxy } from "./inputs.js";
+import type { ProxySettings } from "./types.js";
 
 type CaptureOptions = {
   submissionId: string;
   apiSection: string;
   pageSection: string;
+  proxy?: ProxySettings;
   output?: string;
 };
 
@@ -37,7 +40,7 @@ export async function capture(options: CaptureOptions): Promise<void> {
   const { chromium } = await import("playwright");
   await ensureChromiumInstalled();
   const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext();
+  const context = await browser.newContext(options.proxy ? { proxy: options.proxy } : {});
   const page = await context.newPage();
   let storageStateJson = "";
 
@@ -65,11 +68,14 @@ export async function capture(options: CaptureOptions): Promise<void> {
 export async function verifyAuth(options: {
   submissionId: string;
   apiSection: string;
+  pageSection: string;
   storageState: string;
+  proxy?: ProxySettings;
 }): Promise<void> {
-  const { apiAuthCanReadSubmission } = await import("./publish.js");
-  await apiAuthCanReadSubmission(options.storageState, options, options.submissionId);
-  console.log(`Verified GameBanana API access for submission ${options.submissionId}.`);
+  const { apiAuthCanReadSubmission, verifyStoredAuth } = await import("./publish.js");
+  await apiAuthCanReadSubmission(options.storageState, options, options.submissionId, options.proxy);
+  await verifyStoredAuth(options.storageState, options, options.submissionId, options.proxy);
+  console.log(`Verified GameBanana API and edit-form access for submission ${options.submissionId}.`);
 }
 
 function parseCaptureOptions(args: string[]): CaptureOptions {
@@ -94,6 +100,10 @@ function parseCaptureOptions(args: string[]): CaptureOptions {
     if (arg === "--submission-id") options.submissionId = value;
     else if (arg === "--api-section") options.apiSection = value;
     else if (arg === "--page-section") options.pageSection = value;
+    else if (arg === "--proxy") {
+      const proxy = parseProxy(value);
+      if (proxy) options.proxy = proxy;
+    }
     else if (arg === "--output") options.output = value;
     else throw new Error(`Unknown option ${arg}.`);
   }
@@ -108,11 +118,20 @@ function parseCaptureOptions(args: string[]): CaptureOptions {
 function parseVerifyAuthOptions(args: string[]): {
   submissionId: string;
   apiSection: string;
+  pageSection: string;
   storageState: string;
+  proxy?: ProxySettings;
 } {
-  const options = {
+  const options: {
+    submissionId: string;
+    apiSection: string;
+    pageSection: string;
+    storageState: string;
+    proxy?: ProxySettings;
+  } = {
     submissionId: "",
     apiSection: "Mod",
+    pageSection: "mods",
     storageState: "",
   };
 
@@ -130,7 +149,12 @@ function parseVerifyAuthOptions(args: string[]): {
     index += 1;
     if (arg === "--submission-id") options.submissionId = value;
     else if (arg === "--api-section") options.apiSection = value;
+    else if (arg === "--page-section") options.pageSection = value;
     else if (arg === "--storage-state") options.storageState = value;
+    else if (arg === "--proxy") {
+      const proxy = parseProxy(value);
+      if (proxy) options.proxy = proxy;
+    }
     else throw new Error(`Unknown option ${arg}.`);
   }
 
@@ -141,12 +165,12 @@ function parseVerifyAuthOptions(args: string[]): {
 
 function printHelp(): void {
   console.log(`Usage:
-  gitbanana capture --submission-id <id> [--page-section mods] [--api-section Mod] [--output secret.txt]
-  gitbanana verify-auth --submission-id <id> --storage-state <path> [--api-section Mod]
+  gitbanana capture --submission-id <id> [--page-section mods] [--api-section Mod] [--proxy http://host:port] [--output secret.txt]
+  gitbanana verify-auth --submission-id <id> --storage-state <path> [--api-section Mod] [--page-section mods] [--proxy http://host:port]
 
 Commands:
   capture      Open a headed browser, verify GameBanana edit access, and emit storage-state-b64-gz.
-  verify-auth  Verify stored GameBanana API access without publishing.`);
+  verify-auth  Verify stored GameBanana API and edit-form access without publishing.`);
 }
 
 main(process.argv.slice(2)).catch((error: unknown) => {

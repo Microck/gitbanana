@@ -101,6 +101,10 @@
 - gitbanana must default the publish action browser backend to cloakbrowser, matching the Akron reference release workflow. @implemented
 - gitbanana may support chromium as an explicit fallback browser backend for local debugging and lower-dependency environments. @implemented
 
+## egress
+- The GameBanana publish action can route browser and API traffic through an optional HTTP, HTTPS, or SOCKS5 proxy. @implemented
+- gitbanana documentation warns that GitHub-hosted runner IPs can be rejected by GameBanana and shows Tailscale exit-node setup as the recommended hosted-runner egress path. @implemented
+
 # risks
 
 ## scope

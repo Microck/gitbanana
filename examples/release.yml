@@ -57,6 +57,15 @@ jobs:
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
+      - name: Route GameBanana publishing through Tailscale
+        if: vars.TAILSCALE_EXIT_NODE != ''
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          args: --exit-node=${{ vars.TAILSCALE_EXIT_NODE }}
+
       - name: Publish to GameBanana
         id: gitbanana
         uses: Microck/gitbanana@v1

@@ -22,6 +22,7 @@ import type {
   GameBananaUpdate,
   PublishInput,
   PublishOutput,
+  ProxySettings,
 } from "./types.js";
 
 type RequestLike = {
@@ -44,7 +45,7 @@ export async function publish(input: PublishInput): Promise<PublishOutput> {
   await ensureBrowserInstalled(input.browser);
 
   const version = input.releaseTag.replace(/^v/i, "");
-  const browserSession = await createBrowserSession(input.browser, input.storageStatePath);
+  const browserSession = await createBrowserSession(input.browser, input.storageStatePath, input.proxy);
   const { context } = browserSession;
   const page = await context.newPage();
 
@@ -262,10 +263,14 @@ export async function verifyStoredAuth(
   storageStatePath: string,
   section: { apiSection: string; pageSection: string },
   submissionId: string,
+  proxy?: ProxySettings,
 ): Promise<void> {
   await ensureChromiumInstalled();
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ storageState: storageStatePath });
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    storageState: storageStatePath,
+    ...(proxy ? { proxy } : {}),
+  });
   const page = await context.newPage();
   try {
     await page.goto(`${gameBananaOrigin}/${section.pageSection}/edit/${submissionId}`, {
@@ -293,14 +298,16 @@ async function ensureBrowserInstalled(browserName: PublishInput["browser"]): Pro
 async function createBrowserSession(
   browserName: PublishInput["browser"],
   storageStatePath: string,
+  proxy: ProxySettings | undefined,
 ): Promise<{ context: BrowserContext; close: () => Promise<void> }> {
-  const contextOptions = { storageState: storageStatePath };
+  const contextOptions = { storageState: storageStatePath, ...(proxy ? { proxy } : {}) };
   if (browserName === "cloakbrowser") {
     const { launchContext } = await import("cloakbrowser");
     const context = await launchContext({
       headless: true,
       humanize: true,
-      contextOptions,
+      ...(proxy ? { proxy } : {}),
+      contextOptions: { storageState: storageStatePath },
     });
     return { context, close: () => context.close() };
   }
@@ -314,8 +321,12 @@ export async function apiAuthCanReadSubmission(
   storageStatePath: string,
   section: { apiSection: string },
   submissionId: string,
+  proxy?: ProxySettings,
 ): Promise<void> {
-  const request = await playwrightRequest.newContext({ storageState: storageStatePath });
+  const request = await playwrightRequest.newContext({
+    storageState: storageStatePath,
+    ...(proxy ? { proxy } : {}),
+  });
   try {
     await fetchJson(request, filesUrl({ ...section, pageSection: "mods" }, submissionId));
   } finally {

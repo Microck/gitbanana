@@ -25,7 +25,9 @@ export async function assertEditFormAvailable(page: Page): Promise<void> {
   const permissionMessages = page.locator("#EditFormModule .LogMessages").first();
   if (await permissionMessages.isVisible().catch(() => false)) {
     const message = await permissionMessages.innerText();
-    throw new Error(`GameBanana edit form is not available: ${message}`);
+    throw new Error(
+      `GameBanana edit form is not available: ${message}. If stored auth works locally or API reads succeed but this fails on GitHub Actions, GameBanana may be rejecting the GitHub-hosted runner IP. Route the job through Tailscale or set the gitbanana proxy input.`,
+    );
   }
 }
 

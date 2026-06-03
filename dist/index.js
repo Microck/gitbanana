@@ -73413,7 +73413,9 @@ async function assertEditFormAvailable(page) {
   const permissionMessages = page.locator("#EditFormModule .LogMessages").first();
   if (await permissionMessages.isVisible().catch(() => false)) {
     const message = await permissionMessages.innerText();
-    throw new Error(`GameBanana edit form is not available: ${message}`);
+    throw new Error(
+      `GameBanana edit form is not available: ${message}. If stored auth works locally or API reads succeed but this fails on GitHub Actions, GameBanana may be rejecting the GitHub-hosted runner IP. Route the job through Tailscale or set the gitbanana proxy input.`
+    );
   }
 }
 async function uploadReleaseAsset(page, section, submissionId, assetPath) {
@@ -79866,7 +79868,7 @@ async function publish(input) {
   await stat(input.asset);
   await ensureBrowserInstalled(input.browser);
   const version = input.releaseTag.replace(/^v/i, "");
-  const browserSession = await createBrowserSession(input.browser, input.storageStatePath);
+  const browserSession = await createBrowserSession(input.browser, input.storageStatePath, input.proxy);
   const { context } = browserSession;
   const page = await context.newPage();
   try {
@@ -80034,10 +80036,13 @@ async function waitForLinkedReleaseUpdate(request2, input, submissionId, release
     `GameBanana update ${releaseUpdate._idRow ?? "(unknown id)"} is linked to file IDs ${linkedFileIds.join(", ") || "(none)"} instead of uploaded file ${fileId}.`
   );
 }
-async function verifyStoredAuth(storageStatePath, section, submissionId) {
+async function verifyStoredAuth(storageStatePath, section, submissionId, proxy) {
   await ensureChromiumInstalled();
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ storageState: storageStatePath });
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    storageState: storageStatePath,
+    ...proxy ? { proxy } : {}
+  });
   const page = await context.newPage();
   try {
     await page.goto(`${gameBananaOrigin}/${section.pageSection}/edit/${submissionId}`, {
@@ -80059,14 +80064,15 @@ async function ensureBrowserInstalled(browserName) {
   }
   await ensureChromiumInstalled();
 }
-async function createBrowserSession(browserName, storageStatePath) {
-  const contextOptions = { storageState: storageStatePath };
+async function createBrowserSession(browserName, storageStatePath, proxy) {
+  const contextOptions = { storageState: storageStatePath, ...proxy ? { proxy } : {} };
   if (browserName === "cloakbrowser") {
     const { launchContext: launchContext2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
     const context2 = await launchContext2({
       headless: true,
       humanize: true,
-      contextOptions
+      ...proxy ? { proxy } : {},
+      contextOptions: { storageState: storageStatePath }
     });
     return { context: context2, close: () => context2.close() };
   }
@@ -80074,8 +80080,11 @@ async function createBrowserSession(browserName, storageStatePath) {
   const context = await browser.newContext(contextOptions);
   return { context, close: () => browser.close() };
 }
-async function apiAuthCanReadSubmission(storageStatePath, section, submissionId) {
-  const request2 = await request.newContext({ storageState: storageStatePath });
+async function apiAuthCanReadSubmission(storageStatePath, section, submissionId, proxy) {
+  const request2 = await request.newContext({
+    storageState: storageStatePath,
+    ...proxy ? { proxy } : {}
+  });
   try {
     await fetchJson(request2, filesUrl({ ...section, pageSection: "mods" }, submissionId));
   } finally {
@@ -80157,6 +80166,7 @@ function assertValidStorageStateJson(value) {
 function readActionInput(getInput2, storageStatePath) {
   const releaseTag = requiredText("release-tag", getInput2("release-tag", { required: true }));
   const releaseName = optionalText(getInput2("release-name"), releaseTag);
+  const proxy = parseProxy(getInput2("proxy"));
   return {
     submissionId: requiredText("submission-id", getInput2("submission-id", { required: true })),
     asset: requiredText("asset", getInput2("asset", { required: true })),
@@ -80167,8 +80177,39 @@ function readActionInput(getInput2, storageStatePath) {
     apiSection: optionalText(getInput2("api-section"), "Mod"),
     pageSection: optionalText(getInput2("page-section"), "mods"),
     browser: parseBrowser(optionalText(getInput2("browser"), "cloakbrowser")),
+    ...proxy ? { proxy } : {},
     debugDir: optionalText(getInput2("debug-dir"), "")
   };
+}
+function parseProxy(value) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return void 0;
+  }
+  if (!trimmed.includes("://")) {
+    return { server: trimmed };
+  }
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { server: trimmed };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:" && parsed.protocol !== "socks5:") {
+    throw new Error(
+      `Unsupported proxy protocol ${JSON.stringify(parsed.protocol)}. Use http, https, or socks5.`
+    );
+  }
+  const proxy = {
+    server: `${parsed.protocol}//${parsed.host}`
+  };
+  if (parsed.username) {
+    proxy.username = decodeURIComponent(parsed.username);
+  }
+  if (parsed.password) {
+    proxy.password = decodeURIComponent(parsed.password);
+  }
+  return proxy;
 }
 function parseBrowser(value) {
   if (value !== "cloakbrowser" && value !== "chromium") {

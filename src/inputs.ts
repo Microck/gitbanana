@@ -1,5 +1,5 @@
 import { gunzipSync } from "node:zlib";
-import type { PublishInput } from "./types.js";
+import type { ProxySettings, PublishInput } from "./types.js";
 
 export type ActionInputReader = (name: string, options?: { required?: boolean }) => string;
 
@@ -64,6 +64,7 @@ export function assertValidStorageStateJson(value: string): void {
 export function readActionInput(getInput: ActionInputReader, storageStatePath: string): PublishInput {
   const releaseTag = requiredText("release-tag", getInput("release-tag", { required: true }));
   const releaseName = optionalText(getInput("release-name"), releaseTag);
+  const proxy = parseProxy(getInput("proxy"));
 
   return {
     submissionId: requiredText("submission-id", getInput("submission-id", { required: true })),
@@ -75,8 +76,46 @@ export function readActionInput(getInput: ActionInputReader, storageStatePath: s
     apiSection: optionalText(getInput("api-section"), "Mod"),
     pageSection: optionalText(getInput("page-section"), "mods"),
     browser: parseBrowser(optionalText(getInput("browser"), "cloakbrowser")),
+    ...(proxy ? { proxy } : {}),
     debugDir: optionalText(getInput("debug-dir"), ""),
   };
+}
+
+export function parseProxy(value: string | undefined): ProxySettings | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (!trimmed.includes("://")) {
+    return { server: trimmed };
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { server: trimmed };
+  }
+
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:" && parsed.protocol !== "socks5:") {
+    throw new Error(
+      `Unsupported proxy protocol ${JSON.stringify(parsed.protocol)}. Use http, https, or socks5.`,
+    );
+  }
+
+  const proxy: ProxySettings = {
+    server: `${parsed.protocol}//${parsed.host}`,
+  };
+
+  if (parsed.username) {
+    proxy.username = decodeURIComponent(parsed.username);
+  }
+  if (parsed.password) {
+    proxy.password = decodeURIComponent(parsed.password);
+  }
+
+  return proxy;
 }
 
 function parseBrowser(value: string): "cloakbrowser" | "chromium" {

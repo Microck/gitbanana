@@ -73452,7 +73452,9 @@ async function assertEditFormAvailable(page) {
   const permissionMessages = page.locator("#EditFormModule .LogMessages").first();
   if (await permissionMessages.isVisible().catch(() => false)) {
     const message = await permissionMessages.innerText();
-    throw new Error(`GameBanana edit form is not available: ${message}`);
+    throw new Error(
+      `GameBanana edit form is not available: ${message}. If stored auth works locally or API reads succeed but this fails on GitHub Actions, GameBanana may be rejecting the GitHub-hosted runner IP. Route the job through Tailscale or set the gitbanana proxy input.`
+    );
   }
 }
 async function uploadReleaseAsset(page, section, submissionId, assetPath) {
@@ -79884,7 +79886,7 @@ async function publish(input) {
   await (0, import_promises4.stat)(input.asset);
   await ensureBrowserInstalled(input.browser);
   const version = input.releaseTag.replace(/^v/i, "");
-  const browserSession = await createBrowserSession(input.browser, input.storageStatePath);
+  const browserSession = await createBrowserSession(input.browser, input.storageStatePath, input.proxy);
   const { context } = browserSession;
   const page = await context.newPage();
   try {
@@ -80052,10 +80054,13 @@ async function waitForLinkedReleaseUpdate(request2, input, submissionId, release
     `GameBanana update ${releaseUpdate._idRow ?? "(unknown id)"} is linked to file IDs ${linkedFileIds.join(", ") || "(none)"} instead of uploaded file ${fileId}.`
   );
 }
-async function verifyStoredAuth(storageStatePath, section, submissionId) {
+async function verifyStoredAuth(storageStatePath, section, submissionId, proxy) {
   await ensureChromiumInstalled();
-  const browser = await chromium.launch({ headless: false });
-  const context = await browser.newContext({ storageState: storageStatePath });
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    storageState: storageStatePath,
+    ...proxy ? { proxy } : {}
+  });
   const page = await context.newPage();
   try {
     await page.goto(`${gameBananaOrigin}/${section.pageSection}/edit/${submissionId}`, {
@@ -80077,14 +80082,15 @@ async function ensureBrowserInstalled(browserName) {
   }
   await ensureChromiumInstalled();
 }
-async function createBrowserSession(browserName, storageStatePath) {
-  const contextOptions = { storageState: storageStatePath };
+async function createBrowserSession(browserName, storageStatePath, proxy) {
+  const contextOptions = { storageState: storageStatePath, ...proxy ? { proxy } : {} };
   if (browserName === "cloakbrowser") {
     const { launchContext: launchContext2 } = await Promise.resolve().then(() => (init_dist(), dist_exports));
     const context2 = await launchContext2({
       headless: true,
       humanize: true,
-      contextOptions
+      ...proxy ? { proxy } : {},
+      contextOptions: { storageState: storageStatePath }
     });
     return { context: context2, close: () => context2.close() };
   }
@@ -80092,8 +80098,11 @@ async function createBrowserSession(browserName, storageStatePath) {
   const context = await browser.newContext(contextOptions);
   return { context, close: () => browser.close() };
 }
-async function apiAuthCanReadSubmission(storageStatePath, section, submissionId) {
-  const request2 = await request.newContext({ storageState: storageStatePath });
+async function apiAuthCanReadSubmission(storageStatePath, section, submissionId, proxy) {
+  const request2 = await request.newContext({
+    storageState: storageStatePath,
+    ...proxy ? { proxy } : {}
+  });
   try {
     await fetchJson(request2, filesUrl({ ...section, pageSection: "mods" }, submissionId));
   } finally {
@@ -80134,6 +80143,40 @@ var import_promises5 = require("node:fs/promises");
 var import_node_path13 = require("node:path");
 var import_node_zlib = require("node:zlib");
 init_gamebanana();
+
+// src/inputs.ts
+function parseProxy(value) {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return void 0;
+  }
+  if (!trimmed.includes("://")) {
+    return { server: trimmed };
+  }
+  let parsed;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    return { server: trimmed };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:" && parsed.protocol !== "socks5:") {
+    throw new Error(
+      `Unsupported proxy protocol ${JSON.stringify(parsed.protocol)}. Use http, https, or socks5.`
+    );
+  }
+  const proxy = {
+    server: `${parsed.protocol}//${parsed.host}`
+  };
+  if (parsed.username) {
+    proxy.username = decodeURIComponent(parsed.username);
+  }
+  if (parsed.password) {
+    proxy.password = decodeURIComponent(parsed.password);
+  }
+  return proxy;
+}
+
+// src/cli.ts
 async function main(argv) {
   const [command, ...rest] = argv;
   if (command === "capture") {
@@ -80157,7 +80200,7 @@ async function capture(options2) {
   const { chromium: chromium2 } = await Promise.resolve().then(() => (init_playwright(), playwright_exports));
   await ensureChromiumInstalled2();
   const browser = await chromium2.launch({ headless: false });
-  const context = await browser.newContext();
+  const context = await browser.newContext(options2.proxy ? { proxy: options2.proxy } : {});
   const page = await context.newPage();
   let storageStateJson = "";
   try {
@@ -80180,9 +80223,10 @@ async function capture(options2) {
   }
 }
 async function verifyAuth(options2) {
-  const { apiAuthCanReadSubmission: apiAuthCanReadSubmission2 } = await Promise.resolve().then(() => (init_publish(), publish_exports));
-  await apiAuthCanReadSubmission2(options2.storageState, options2, options2.submissionId);
-  console.log(`Verified GameBanana API access for submission ${options2.submissionId}.`);
+  const { apiAuthCanReadSubmission: apiAuthCanReadSubmission2, verifyStoredAuth: verifyStoredAuth2 } = await Promise.resolve().then(() => (init_publish(), publish_exports));
+  await apiAuthCanReadSubmission2(options2.storageState, options2, options2.submissionId, options2.proxy);
+  await verifyStoredAuth2(options2.storageState, options2, options2.submissionId, options2.proxy);
+  console.log(`Verified GameBanana API and edit-form access for submission ${options2.submissionId}.`);
 }
 function parseCaptureOptions(args) {
   const options2 = {
@@ -80203,7 +80247,10 @@ function parseCaptureOptions(args) {
     if (arg === "--submission-id") options2.submissionId = value;
     else if (arg === "--api-section") options2.apiSection = value;
     else if (arg === "--page-section") options2.pageSection = value;
-    else if (arg === "--output") options2.output = value;
+    else if (arg === "--proxy") {
+      const proxy = parseProxy(value);
+      if (proxy) options2.proxy = proxy;
+    } else if (arg === "--output") options2.output = value;
     else throw new Error(`Unknown option ${arg}.`);
   }
   if (!options2.submissionId) {
@@ -80215,6 +80262,7 @@ function parseVerifyAuthOptions(args) {
   const options2 = {
     submissionId: "",
     apiSection: "Mod",
+    pageSection: "mods",
     storageState: ""
   };
   for (let index = 0; index < args.length; index += 1) {
@@ -80229,8 +80277,12 @@ function parseVerifyAuthOptions(args) {
     index += 1;
     if (arg === "--submission-id") options2.submissionId = value;
     else if (arg === "--api-section") options2.apiSection = value;
+    else if (arg === "--page-section") options2.pageSection = value;
     else if (arg === "--storage-state") options2.storageState = value;
-    else throw new Error(`Unknown option ${arg}.`);
+    else if (arg === "--proxy") {
+      const proxy = parseProxy(value);
+      if (proxy) options2.proxy = proxy;
+    } else throw new Error(`Unknown option ${arg}.`);
   }
   if (!options2.submissionId) throw new Error("--submission-id is required.");
   if (!options2.storageState) throw new Error("--storage-state is required.");
@@ -80238,12 +80290,12 @@ function parseVerifyAuthOptions(args) {
 }
 function printHelp() {
   console.log(`Usage:
-  gitbanana capture --submission-id <id> [--page-section mods] [--api-section Mod] [--output secret.txt]
-  gitbanana verify-auth --submission-id <id> --storage-state <path> [--api-section Mod]
+  gitbanana capture --submission-id <id> [--page-section mods] [--api-section Mod] [--proxy http://host:port] [--output secret.txt]
+  gitbanana verify-auth --submission-id <id> --storage-state <path> [--api-section Mod] [--page-section mods] [--proxy http://host:port]
 
 Commands:
   capture      Open a headed browser, verify GameBanana edit access, and emit storage-state-b64-gz.
-  verify-auth  Verify stored GameBanana API access without publishing.`);
+  verify-auth  Verify stored GameBanana API and edit-form access without publishing.`);
 }
 main(process.argv.slice(2)).catch((error) => {
   console.error(error instanceof Error ? error.message : String(error));

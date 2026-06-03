@@ -19,6 +19,12 @@ verify that the update links to the published file, and return stable outputs
 for the rest of your workflow. your project still builds the asset, prepares
 release notes, and creates or updates the github release.
 
+> [!IMPORTANT]
+> GameBanana can reject github-hosted runner IPs even when your storage state is
+> valid. in Akron, direct runner egress could read the GameBanana API but the edit
+> UI rejected the same account; routing the job through a Tailscale exit node made
+> publishing work. plan on using a trusted exit node or proxy for hosted runners.
+
 ## quickstart
 
 ```yaml
@@ -82,6 +88,75 @@ gh secret set GAMEBANANA_STORAGE_STATE_B64_GZ --body-file gamebanana-state.txt
 do not commit `gamebanana-state.txt`. treat it like a password because it can
 impersonate the signed-in GameBanana account.
 
+## runner egress
+
+storage state proves who you are, but it does not make github's shared runner IPs
+look like your normal browser session. if GameBanana flags the runner IP, the
+API may still work while the edit page says the account is missing permissions.
+that means the browser path needs different egress.
+
+### tailscale exit node
+
+the recommended setup is to route the release job through a Tailscale exit node
+you control before running `gitbanana`.
+
+create these repository secrets:
+
+| secret | value |
+| --- | --- |
+| `TS_OAUTH_CLIENT_ID` | Tailscale OAuth client id. |
+| `TS_OAUTH_SECRET` | Tailscale OAuth client secret. |
+
+create these repository variables:
+
+| variable | value |
+| --- | --- |
+| `TAILSCALE_EXIT_NODE` | Exit node IP or stable Tailscale identifier. |
+| `TAILSCALE_TAGS` | OAuth device tags, for example `tag:ci`. |
+
+then add Tailscale before the publish step:
+
+```yaml
+- name: Route GameBanana publishing through Tailscale
+  uses: tailscale/github-action@v4
+  with:
+    oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+    oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+    tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+    args: --exit-node=${{ vars.TAILSCALE_EXIT_NODE }}
+
+- name: Publish to GameBanana
+  id: gitbanana
+  uses: Microck/gitbanana@v1
+  with:
+    submission-id: ${{ vars.GAMEBANANA_SUBMISSION_ID }}
+    asset: dist/example-${{ github.ref_name }}.zip
+    release-tag: ${{ github.ref_name }}
+    release-notes: ${{ steps.notes.outputs.markdown }}
+    storage-state-b64-gz: ${{ secrets.GAMEBANANA_STORAGE_STATE_B64_GZ }}
+```
+
+### proxy input
+
+if you already have an HTTP, HTTPS, or SOCKS5 proxy with a trusted exit IP, pass
+it directly to `gitbanana`:
+
+```yaml
+- name: Publish to GameBanana
+  uses: Microck/gitbanana@v1
+  with:
+    submission-id: ${{ vars.GAMEBANANA_SUBMISSION_ID }}
+    asset: dist/example-${{ github.ref_name }}.zip
+    release-tag: ${{ github.ref_name }}
+    release-notes: ${{ steps.notes.outputs.markdown }}
+    storage-state-b64-gz: ${{ secrets.GAMEBANANA_STORAGE_STATE_B64_GZ }}
+    proxy: ${{ secrets.GITBANANA_PROXY }}
+```
+
+`proxy` accepts values such as `http://user:pass@host:8080`,
+`https://host:8443`, `socks5://host:1080`, or Playwright's short
+`host:port` form. keep proxy credentials in secrets.
+
 ## inputs
 
 | input | required | default | description |
@@ -96,6 +171,7 @@ impersonate the signed-in GameBanana account.
 | `api-section` | no | `Mod` | GameBanana API section name. |
 | `page-section` | no | `mods` | GameBanana edit-page route section. |
 | `browser` | no | `cloakbrowser` | Browser backend: `cloakbrowser` or `chromium`. |
+| `proxy` | no | | HTTP, HTTPS, or SOCKS5 proxy for GameBanana browser and API traffic. |
 | `debug-dir` | no | | Directory for sanitized failure artifacts. |
 
 *Set exactly one storage-state input.
@@ -182,12 +258,12 @@ useful local commands:
 
 ```bash
 node dist/cli.cjs --help
-node dist/cli.cjs verify-auth --submission-id 123456 --storage-state /path/to/storage-state.json
+node dist/cli.cjs verify-auth --submission-id 123456 --storage-state /path/to/storage-state.json --proxy http://host:8080
 ```
 
 the normal test suite uses local fixtures and does not publish to GameBanana.
-the opt-in smoke workflow verifies stored GameBanana API access when you provide
-the required secret.
+the opt-in smoke workflow verifies stored GameBanana API and edit-form access
+when you provide the required secret.
 
 ## license
 

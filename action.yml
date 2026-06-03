@@ -38,6 +38,9 @@ inputs:
     description: Browser backend. Supported values are cloakbrowser and chromium.
     default: cloakbrowser
     required: false
+  proxy:
+    description: Optional HTTP, HTTPS, or SOCKS5 proxy used for GameBanana browser and API traffic.
+    required: false
   debug-dir:
     description: Directory for sanitized debug artifacts on failure.
     required: false

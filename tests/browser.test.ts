@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium } from "playwright";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { promoteUploadedFileInList } from "../src/browser.js";
+import { assertEditFormAvailable, promoteUploadedFileInList } from "../src/browser.js";
 
 let browser: Awaited<ReturnType<typeof chromium.launch>>;
 
@@ -78,6 +78,18 @@ describe("browser helpers", () => {
       "sortupdate",
       "change",
     ]);
+    await page.close();
+  });
+
+  it("explains the GitHub runner egress failure mode when the edit form rejects auth", async () => {
+    const page = await browser.newPage();
+    await page.setContent(`
+      <section id="EditFormModule">
+        <div class="LogMessages">You must be user Microck</div>
+      </section>
+    `);
+
+    await expect(assertEditFormAvailable(page)).rejects.toThrow("GitHub-hosted runner IP");
     await page.close();
   });
 

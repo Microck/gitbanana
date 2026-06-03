@@ -1,6 +1,11 @@
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
-import { assertValidStorageStateJson, decodeStorageState, readActionInput } from "../src/inputs.js";
+import {
+  assertValidStorageStateJson,
+  decodeStorageState,
+  parseProxy,
+  readActionInput,
+} from "../src/inputs.js";
 
 const storageState = JSON.stringify({ cookies: [], origins: [] });
 
@@ -38,5 +43,24 @@ describe("input handling", () => {
       pageSection: "mods",
       browser: "cloakbrowser",
     });
+    expect(input).not.toHaveProperty("proxy");
+  });
+
+  it("parses proxy URLs without leaking credentials through the server field", () => {
+    expect(parseProxy("http://user:p%40ss@example.com:8080")).toEqual({
+      server: "http://example.com:8080",
+      username: "user",
+      password: "p@ss",
+    });
+  });
+
+  it("accepts Playwright short proxy form", () => {
+    expect(parseProxy("example.com:8080")).toEqual({
+      server: "example.com:8080",
+    });
+  });
+
+  it("rejects unsupported proxy protocols", () => {
+    expect(() => parseProxy("ftp://example.com:21")).toThrow("Unsupported proxy protocol");
   });
 });

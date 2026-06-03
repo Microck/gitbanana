@@ -7,6 +7,16 @@ on:
         description: GameBanana submission id to verify.
         required: true
         type: string
+      page_section:
+        description: GameBanana page route section.
+        required: false
+        default: mods
+        type: string
+      api_section:
+        description: GameBanana API section name.
+        required: false
+        default: Mod
+        type: string
 
 permissions:
   contents: read
@@ -26,6 +36,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm exec playwright install chromium
       - run: pnpm build
+      - name: Route GameBanana smoke through Tailscale
+        if: vars.TAILSCALE_EXIT_NODE != ''
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: ${{ vars.TAILSCALE_TAGS || 'tag:ci' }}
+          args: --exit-node=${{ vars.TAILSCALE_EXIT_NODE }}
       - name: Decode storage state
         env:
           GAMEBANANA_STORAGE_STATE_B64_GZ: ${{ secrets.GAMEBANANA_STORAGE_STATE_B64_GZ }}
@@ -33,8 +51,22 @@ jobs:
           set -euo pipefail
           test -n "$GAMEBANANA_STORAGE_STATE_B64_GZ"
           printf '%s' "$GAMEBANANA_STORAGE_STATE_B64_GZ" | base64 --decode | gzip -dc > "$RUNNER_TEMP/storage-state.json"
-      - name: Verify GameBanana API access
+      - name: Verify GameBanana API and edit-form access
         env:
           SUBMISSION_ID: ${{ inputs.submission_id }}
+          API_SECTION: ${{ inputs.api_section }}
+          PAGE_SECTION: ${{ inputs.page_section }}
+          GITBANANA_PROXY: ${{ secrets.GITBANANA_PROXY }}
         run: |
-          node dist/cli.cjs verify-auth --submission-id "$SUBMISSION_ID" --storage-state "$RUNNER_TEMP/storage-state.json"
+          set -euo pipefail
+          args=(
+            verify-auth
+            --submission-id "$SUBMISSION_ID"
+            --api-section "$API_SECTION"
+            --page-section "$PAGE_SECTION"
+            --storage-state "$RUNNER_TEMP/storage-state.json"
+          )
+          if [ -n "${GITBANANA_PROXY:-}" ]; then
+            args+=(--proxy "$GITBANANA_PROXY")
+          fi
+          node dist/cli.cjs "${args[@]}"
