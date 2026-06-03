@@ -1,6 +1,6 @@
 {
   "name": "gitbanana",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "GitHub Action and CLI for publishing GitHub release assets to GameBanana.",
   "type": "module",
   "homepage": "https://github.com/Microck/gitbanana#readme",

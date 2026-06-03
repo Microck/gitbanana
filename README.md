@@ -19,12 +19,6 @@ verify that the update links to the published file, and return stable outputs
 for the rest of your workflow. your project still builds the asset, prepares
 release notes, and creates or updates the github release.
 
-> [!IMPORTANT]
-> GameBanana can reject github-hosted runner IPs even when your storage state is
-> valid. in Akron, direct runner egress could read the GameBanana API but the edit
-> UI rejected the same account; routing the job through a Tailscale exit node made
-> publishing work. plan on using a trusted exit node or proxy for hosted runners.
-
 ## quickstart
 
 ```yaml
@@ -94,6 +88,11 @@ storage state proves who you are, but it does not make github's shared runner IP
 look like your normal browser session. if GameBanana flags the runner IP, the
 API may still work while the edit page says the account is missing permissions.
 that means the browser path needs different egress.
+
+> [!IMPORTANT]
+> for github-hosted runners, plan on using a trusted exit node or proxy for
+> GameBanana publishing. valid storage state solves authentication, but it does
+> not guarantee that GameBanana will accept the runner's public IP.
 
 ### tailscale exit node
 

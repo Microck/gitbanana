@@ -11,11 +11,6 @@
 
 # research
 
-## akron
-- Akron's working release flow publishes a built zip to GameBanana before creating or updating the GitHub Release, so GameBanana failures do not leave a new partial GitHub release. @implemented
-- Akron's GameBanana publisher accepts Playwright storage state, gzip-compressed storage state, or cookie bundle authentication, but gitbanana intentionally narrows that broader Akron behavior to storage-state-only auth. @implemented
-- Akron's GameBanana publisher verifies that the uploaded file is the first active GameBanana file and that the release update links to that file before exposing the file id as workflow output. @implemented
-
 ## github-actions
 - GitHub Actions metadata for this project must use action.yml because GitHub Marketplace release visibility is tied to the metadata filename used by released action versions. @implemented
 - GitHub Actions JavaScript actions can run on node24 and declare their executable entry point through runs.main. @implemented
@@ -98,7 +93,7 @@
 - gitbanana tests must cover pure behavior including input validation, storage-state decoding, release-note conversion, update and file matching, idempotency decisions, and output construction. @implemented
 
 ## browser
-- gitbanana must default the publish action browser backend to cloakbrowser, matching the Akron reference release workflow. @implemented
+- gitbanana must default the publish action browser backend to cloakbrowser for stealth-oriented GameBanana browser automation. @implemented
 - gitbanana may support chromium as an explicit fallback browser backend for local debugging and lower-dependency environments. @implemented
 
 ## egress
