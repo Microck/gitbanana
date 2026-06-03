@@ -127,7 +127,7 @@
 - gitbanana is published as the public GitHub repository Microck/gitbanana with repository description and topics that identify it as a GameBanana release publishing GitHub Action. @implemented
 
 ## ci
-- gitbanana CI passes on the pushed GitHub main branch before npm publishing is treated as complete. @spec
+- gitbanana CI passes on the pushed GitHub main branch before npm publishing is treated as complete. @implemented
 
 ## npm
-- gitbanana is published to npm as the gitbanana package with the repository's current package version. @spec
+- gitbanana is published to npm as the gitbanana package with the repository's current package version. @implemented
