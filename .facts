@@ -131,3 +131,6 @@
 
 ## npm
 - gitbanana is published to npm as the gitbanana package with the repository's current package version. @implemented
+
+## marketplace
+- gitbanana action metadata uses the Marketplace-facing action name gitbanana-release and clear upload/release branding for GitHub Marketplace publication. @implemented

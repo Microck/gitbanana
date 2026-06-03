@@ -1,9 +1,9 @@
-name: gitbanana
+name: gitbanana-release
 author: Microck
 description: Publish a release asset to a GameBanana submission from GitHub Actions.
 branding:
   icon: upload-cloud
-  color: orange
+  color: yellow
 inputs:
   submission-id:
     description: GameBanana submission id.
