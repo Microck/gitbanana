@@ -1,8 +1,16 @@
 {
   "name": "gitbanana",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "GitHub Action and CLI for publishing GitHub release assets to GameBanana.",
   "type": "module",
+  "homepage": "https://github.com/Microck/gitbanana#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Microck/gitbanana.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Microck/gitbanana/issues"
+  },
   "bin": {
     "gitbanana": "dist/cli.cjs"
   },
@@ -30,7 +38,14 @@
   "packageManager": "pnpm@10.25.0",
   "dependencies": {
     "cloakbrowser": "0.3.31",
-    "playwright": "^1.56.1"
+    "playwright": "1.56.1",
+    "playwright-core": "1.56.1"
+  },
+  "pnpm": {
+    "overrides": {
+      "playwright": "1.56.1",
+      "playwright-core": "1.56.1"
+    }
   },
   "devDependencies": {
     "@types/node": "^24.10.1",

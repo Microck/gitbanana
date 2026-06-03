@@ -114,6 +114,7 @@
 
 # documentation
 - gitbanana README uses the provided logo, follows the user's recent concise product README style, and documents purpose, quickstart, authentication capture, inputs, outputs, reruns, debugging, workflows, and local development. @implemented
+- gitbanana README includes centered status badges matching the user's kagi README badge style for release, npm, ci, and license. @implemented
 
 # tooling
 
@@ -124,3 +125,9 @@
 
 ## github
 - gitbanana is published as the public GitHub repository Microck/gitbanana with repository description and topics that identify it as a GameBanana release publishing GitHub Action. @implemented
+
+## ci
+- gitbanana CI passes on the pushed GitHub main branch before npm publishing is treated as complete. @spec
+
+## npm
+- gitbanana is published to npm as the gitbanana package with the repository's current package version. @spec

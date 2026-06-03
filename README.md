@@ -3,6 +3,15 @@
   <h1>gitbanana</h1>
 </div>
 
+<p align="center">
+  <a href="https://github.com/Microck/gitbanana/releases"><img src="https://img.shields.io/github/v/release/Microck/gitbanana?display_name=tag&style=flat-square&label=release&color=000000" alt="release badge"></a>
+  <a href="https://www.npmjs.com/package/gitbanana"><img src="https://img.shields.io/npm/dt/gitbanana?style=flat-square&label=downloads&color=000000" alt="npm downloads"></a>
+  <a href="https://github.com/Microck/gitbanana/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Microck/gitbanana/ci.yml?branch=main&style=flat-square&label=ci&color=000000" alt="ci badge"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-mit-000000?style=flat-square" alt="license badge"></a>
+</p>
+
+---
+
 `gitbanana` publishes a release asset from github actions to a GameBanana
 submission.
 
